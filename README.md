@@ -55,10 +55,3 @@ python Picasa.py <image_name.png or path (if exists)>
    ```bash
    sudo dpkg -i Picasa_1.0_all.deb
 
-## Screenshots
-
-![image](https://github.com/user-attachments/assets/19c9b3b7-588c-4027-9897-4548aaea3f43)
-
-![image](https://github.com/user-attachments/assets/72a98b32-8bdf-4473-bbb5-6aeb9bc9fda0)
-
-![image](https://github.com/user-attachments/assets/e24df931-de55-41e4-bf93-9ffb13d49039)
