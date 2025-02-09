@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+import shutil
 import gi
 import os
 import sys
 import cairo
+import subprocess
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GdkPixbuf, Gdk, GLib
@@ -154,6 +156,7 @@ class PhotoViewer(Gtk.Window):
 			Gdk.EventMask.SCROLL_MASK
 		)
 		self.drawing_area.connect("scroll-event", self.on_scroll)
+		self.drawing_area.connect("button-press-event", self.show_context_menu, path)
 		self.fullscreen_window.add(self.drawing_area)
 		self.fullscreen_window.show_all()
 
@@ -222,6 +225,58 @@ class PhotoViewer(Gtk.Window):
 			tooltip.set_markup(event_box.get_tooltip_text())
 			return True
 		return False
+
+	def show_context_menu(self, widget, event, image_path):
+		if event.button == 3:
+			menu = Gtk.Menu()
+
+			copy_image_item = Gtk.MenuItem(label="Copy image")
+			copy_image_item.connect("activate", self.copy_image_to_clipboard, image_path)
+			menu.append(copy_image_item)
+
+			copy_path_item = Gtk.MenuItem(label="Copy path to image")
+			copy_path_item.connect("activate", self.copy_path, image_path)
+			menu.append(copy_path_item)
+
+			copy_folder_item = Gtk.MenuItem(label="Copy path to image folder")
+			copy_folder_item.connect("activate", self.copy_folder_path, image_path)
+			menu.append(copy_folder_item)
+
+			open_folder_item = Gtk.MenuItem(label="Open image folder")
+			open_folder_item.connect("activate", self.open_folder, image_path)
+			menu.append(open_folder_item)
+
+			menu.show_all()
+			menu.popup_at_pointer(event)
+
+	def copy_image_to_clipboard(self, widget, image_path):
+		try:
+			pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_path)
+			clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+			clipboard.set_image(pixbuf)
+		except Exception as e:
+			print(f"Error when copying image to clipboard: {e}")
+
+	def copy_path(self, widget, image_path):
+		clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+		clipboard.set_text(image_path, -1)
+		print(f"Image copied to clipboard: {image_path}")
+
+	def copy_folder_path(self, widget, image_path):
+		folder_path = os.path.dirname(image_path)
+		clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+		clipboard.set_text(folder_path, -1)
+
+	def open_folder(self, widget, image_path):
+		folder_path = os.path.dirname(image_path)
+		os.system(f'xdg-open "{folder_path}"')
+		print(f"Open image folder: {folder_path}")
+		if subprocess.call(['which', 'nautilus'], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0:
+			subprocess.Popen(['nautilus', '--select', image_path])
+		elif subprocess.call(['which', 'nemo'], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0:
+			subprocess.Popen(['nemo', '--select', image_path])
+		else:
+			print("U need nautilus or nemo for file selection:P")
 
 
 if __name__ == "__main__":
