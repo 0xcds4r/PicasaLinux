@@ -53,5 +53,5 @@ python Picasa.py <image_name.png or path (if exists)>
 2. Install deb
 
    ```bash
-   sudo dpkg -i Picasa_1.0_all.deb
+   sudo dpkg -i Picasa_1.0.2_all.deb
 
