@@ -17,6 +17,7 @@ class PhotoViewer(Gtk.Window):
 		self.image_files = []
 		self.current_index = 0
 		self.thumbnail_size = 150
+		self.single_opened = False
 
 		self.fullscreen_window = None
 		self.fullscreen_image = None
@@ -34,6 +35,7 @@ class PhotoViewer(Gtk.Window):
 				self.iconify()
 				self.load_folder(folder_path)
 				self.show_fullscreen(image_path)
+				self.single_opened = True
 			elif os.path.isdir(image_path):  
 				self.load_folder(image_path)
 			else:
@@ -204,6 +206,8 @@ class PhotoViewer(Gtk.Window):
 		key = event.keyval
 		if key == Gdk.KEY_Escape:
 			self.fullscreen_window.destroy()
+			if self.single_opened:
+				Gtk.main_quit()
 		elif key == Gdk.KEY_Left:
 			self.current_index = max(0, self.current_index - 1)
 			self.show_fullscreen(self.image_files[self.current_index])
