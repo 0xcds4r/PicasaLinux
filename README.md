@@ -29,7 +29,10 @@ Picasa is a simple photo viewer application built with Python and GTK. It allows
 - PyGObject (gi)
 
 ## Test
-[wget ](https://raw.githubusercontent.com/0xcds4r/PicasaLinux/refs/heads/main/Picasa.py)
+
+```bash
+wget https://raw.githubusercontent.com/0xcds4r/PicasaLinux/refs/heads/main/Picasa.py
+
 
 ## Installation
 
