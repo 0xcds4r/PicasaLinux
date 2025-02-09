@@ -45,13 +45,5 @@ python Picasa.py <image_name.png or path (if exists)>
 
 ## Installation
 
-1. Install the required dependencies:
-
-   ```bash
-   sudo apt-get install python3-gi python3-cairo gir1.2-gtk-3.0
-
-2. Install deb
-
-   ```bash
-   sudo dpkg -i Picasa_1.0.2_all.deb
+[Releases](https://github.com/0xcds4r/PicasaLinux/releases/tag/release)
 
