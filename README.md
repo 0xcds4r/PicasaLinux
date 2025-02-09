@@ -1,6 +1,8 @@
 # Picasa - Photo Viewer _**LINUX RE-IMPLEMENTATION**_
 
-Picasa is a simple photo viewer application built with Python and GTK. It allows users to browse and view images from a folder, displaying thumbnails and providing fullscreen viewing with zoom and drag capabilities.
+Picasa is a simple photo viewer application re-implemented for Linux using Python and GTK. It allows users to browse and view images from a folder, displaying thumbnails and offering fullscreen viewing with zoom and drag capabilities.
+I do not claim ownership of the original application by Google. This is simply a convenient tool that I personally enjoy and wanted to port to Linux for convenience, to share with other users who are also looking for this useful tool.
+If any developers would like to improve this project, I welcome contributions. Feel free to suggest ideas for improvements through issues, forks, and so on.
 
 ## Features
 
