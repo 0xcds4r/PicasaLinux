@@ -51,7 +51,7 @@ python Picasa.py <image_name.png or path (if exists)>
    ```bash
    sudo dpkg -i Picasa_1.0_all.deb
 
-**screenshots:**
+## Screenshots
 
 ![image](https://github.com/user-attachments/assets/19c9b3b7-588c-4027-9897-4548aaea3f43)
 
