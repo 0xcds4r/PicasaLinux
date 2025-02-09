@@ -38,9 +38,7 @@ Picasa is a simple photo viewer application built with Python and GTK. It allows
 2. Install deb
 
    ```bash
-   sudo dpkg -i Picasa_1.0_all.deb
-
-
+   sudo dpkg -i Picasa_1.0_all.deb```
 
 **screenshots:**
 
