@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Picasa
-Exec=/usr/local/bin/Picasa %f
-Icon=Picasa.png
-Terminal=false
-Type=Application
-MimeType=image/jpeg;image/png;image/gif;image/bmp;image/tiff;image/x-ms-bmp;image/x-icon;
-Categories=Graphics;Viewer;
