@@ -30,9 +30,14 @@ Picasa is a simple photo viewer application built with Python and GTK. It allows
 
 ## Test
 
-```bash
+You can test it before installation:
+```
 wget https://raw.githubusercontent.com/0xcds4r/PicasaLinux/refs/heads/main/Picasa.py
+```
 
+```
+python Picasa.py <image_name.png or path (if exists)>
+```
 
 ## Installation
 
