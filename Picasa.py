@@ -4,6 +4,7 @@ import gi
 import os
 import sys
 import cairo
+import math
 import subprocess
 
 gi.require_version("Gtk", "3.0")
@@ -27,18 +28,19 @@ class PhotoViewer(Gtk.Window):
 		self.scale_factor = 1.0
 		self.offset = (0, 0)
 		self.drag_start = None
+		self.rotation_angle = 0
+		self.current_image_path = ""
 
 		self.setup_browser()
 
 		if image_path:
 			if os.path.isfile(image_path):
 				folder_path = os.path.dirname(os.path.abspath(image_path))
-				print(f"Directory of the file: {folder_path}")
 				self.iconify()
 				self.load_folder(folder_path)
 				self.show_fullscreen(image_path)
 				self.single_opened = True
-			elif os.path.isdir(image_path):  
+			elif os.path.isdir(image_path):
 				self.load_folder(image_path)
 			else:
 				print(f"Error image path: {image_path}")
@@ -70,19 +72,18 @@ class PhotoViewer(Gtk.Window):
 
 		if dialog.run() == Gtk.ResponseType.OK:
 			self.load_folder(dialog.get_filename())
-
 		dialog.destroy()
 
 	def load_folder(self, folder_path):
 		if not os.path.isdir(folder_path):
-			print(f"Ошибка: {folder_path} не является каталогом.")
+			print(f"Error: {folder_path} is not a directory.")
 			return
 
 		self.current_folder = folder_path
 		self.image_files = [
 			os.path.join(self.current_folder, f)
 			for f in os.listdir(self.current_folder)
-			if f.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'bmp'))
+			if f.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'bmp', 'heic'))
 		]
 		self.update_thumbnails()
 
@@ -92,8 +93,8 @@ class PhotoViewer(Gtk.Window):
 
 		for path in self.image_files:
 			thumbnail = self.create_thumbnail(path)
-			self.flowbox.add(thumbnail)
-
+			if thumbnail:
+				self.flowbox.add(thumbnail)
 		self.flowbox.show_all()
 
 	def create_thumbnail(self, path):
@@ -118,9 +119,21 @@ class PhotoViewer(Gtk.Window):
 			self.fullscreen_window.destroy()
 
 		self.fullscreen_window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
-		self.fullscreen_window.fullscreen()
-		self.fullscreen_window.set_app_paintable(True)
 		screen = self.fullscreen_window.get_screen()
+		monitor = screen.get_primary_monitor()
+		geom = screen.get_monitor_geometry(monitor)
+	
+		self.fullscreen_window.set_default_size(geom.width, geom.height)
+		self.fullscreen_window.move(geom.x, geom.y)
+
+		self.fullscreen_window.set_position(Gtk.WindowPosition.CENTER)
+		self.fullscreen_window.set_transient_for(self)
+		self.fullscreen_window.set_modal(False)  
+		self.fullscreen_window.set_decorated(False)
+
+		self.fullscreen_window.set_app_paintable(True)
+		self.fullscreen_window.set_skip_taskbar_hint(True)
+
 		visual = screen.get_rgba_visual()
 		if visual and screen.is_composited():
 			self.fullscreen_window.set_visual(visual)
@@ -139,16 +152,32 @@ class PhotoViewer(Gtk.Window):
 
 		try:
 			self.pixbuf = GdkPixbuf.Pixbuf.new_from_file(path)
-			self.fullscreen_image = Gtk.Image.new_from_pixbuf(self.pixbuf)
-			self.scale_factor = 1.0
+			self.current_image_path = path
+
+			image_width = self.pixbuf.get_width()
+			image_height = self.pixbuf.get_height()
+			screen_width = geom.width
+			screen_height = geom.height
+
+			padding = min(screen_width, screen_height) * 0.05
+			safe_width = screen_width - 2 * padding
+			safe_height = screen_height - 2 * padding
+
+			scale_w = safe_width / image_width if image_width > 0 else 1.0
+			scale_h = safe_height / image_height if image_height > 0 else 1.0
+			self.scale_factor = min(scale_w, scale_h, 1.0)
+
+			if self.scale_factor < 0.1:
+				self.scale_factor = 0.1
+
 			self.offset = (0, 0)
+			self.rotation_angle = 0
 		except Exception as e:
 			print(f"Error loading {path}: {e}")
 			return
 
 		self.drawing_area = Gtk.DrawingArea()
 		self.drawing_area.connect("draw", self.on_draw)
-
 		self.drawing_area.set_events(
 			Gdk.EventMask.BUTTON_PRESS_MASK |
 			Gdk.EventMask.BUTTON_RELEASE_MASK |
@@ -164,28 +193,52 @@ class PhotoViewer(Gtk.Window):
 		if not self.pixbuf:
 			return
 
-		scaled_w = self.pixbuf.get_width() * self.scale_factor
-		scaled_h = self.pixbuf.get_height() * self.scale_factor
-		scaled_pixbuf = self.pixbuf.scale_simple(
-			int(scaled_w),
-			int(scaled_h),
-			GdkPixbuf.InterpType.HYPER
-		)
-
 		cr.set_source_rgba(0.0, 0.0, 0.0, 0.0)
 		cr.set_operator(cairo.OPERATOR_SOURCE)
 		cr.paint()
 		cr.set_operator(cairo.OPERATOR_OVER)
 
-		x = (widget.get_allocated_width() - scaled_w) / 2 + self.offset[0]
-		y = (widget.get_allocated_height() - scaled_h) / 2 + self.offset[1]
+		alloc = widget.get_allocation()
+		width = alloc.width
+		height = alloc.height
 
-		Gdk.cairo_set_source_pixbuf(cr, scaled_pixbuf, x, y)
+		img_width = self.pixbuf.get_width()
+		img_height = self.pixbuf.get_height()
+
+		cr.save()
+		cr.translate(width/2 + self.offset[0], height/2 + self.offset[1])
+		cr.rotate(math.radians(self.rotation_angle))
+
+		if self.rotation_angle % 180 == 90:
+			cr.scale(self.scale_factor * img_height / img_width, self.scale_factor * img_width / img_height)
+			cr.translate(-img_width/2, -img_height/2)
+		else:
+			cr.scale(self.scale_factor, self.scale_factor)
+			cr.translate(-img_width/2, -img_height/2)
+
+		Gdk.cairo_set_source_pixbuf(cr, self.pixbuf, 0, 0)
 		cr.paint()
+		cr.restore()
+
+		cr.set_font_size(12)
+		cr.set_source_rgba(0, 0, 0, 0.5)
+		cr.rectangle(5, 5, 300, 25)
+		cr.fill()
+
+		cr.set_source_rgb(1, 1, 1)
+		info = f"{os.path.basename(self.current_image_path)} ({img_width}x{img_height}) Zoom: {int(self.scale_factor*100)}% Rot: {self.rotation_angle}°"
+		cr.move_to(10, 20)
+		cr.show_text(info)
 
 	def on_button_press(self, widget, event):
 		if event.button == 1:
-			self.drag_start = (event.x, event.y)
+			if event.type == Gdk.EventType._2BUTTON_PRESS:
+				self.scale_factor = 1.0
+				self.offset = (0, 0)
+				self.rotation_angle = 0
+				self.drawing_area.queue_draw()
+			else:
+				self.drag_start = (event.x, event.y)
 
 	def on_mouse_move(self, widget, event):
 		if self.drag_start:
@@ -203,6 +256,12 @@ class PhotoViewer(Gtk.Window):
 			self.scale_factor *= 1.1
 		elif event.direction == Gdk.ScrollDirection.DOWN:
 			self.scale_factor /= 1.1
+		elif event.direction == Gdk.ScrollDirection.SMOOTH:
+			delta_x, delta_y = event.get_scroll_deltas()
+			if delta_y != 0:
+				self.scale_factor *= 1.0 + delta_y * 0.1
+
+		self.scale_factor = max(0.1, min(self.scale_factor, 10.0))
 		self.drawing_area.queue_draw()
 
 	def on_fullscreen_key_press(self, widget, event):
@@ -217,14 +276,12 @@ class PhotoViewer(Gtk.Window):
 		elif key == Gdk.KEY_Right:
 			self.current_index = min(len(self.image_files)-1, self.current_index + 1)
 			self.show_fullscreen(self.image_files[self.current_index])
-
-	def on_flowbox_query_tooltip(self, flowbox, x, y, keyboard_mode, tooltip):
-		child = flowbox.get_child_at_pos(x, y)
-		if child is not None:
-			event_box = child.get_child()
-			tooltip.set_markup(event_box.get_tooltip_text())
-			return True
-		return False
+		elif key == Gdk.KEY_Up:
+			self.rotation_angle = (self.rotation_angle + 90) % 360
+			self.drawing_area.queue_draw()
+		elif key == Gdk.KEY_Down:
+			self.rotation_angle = (self.rotation_angle - 90) % 360
+			self.drawing_area.queue_draw()
 
 	def show_context_menu(self, widget, event, image_path):
 		if event.button == 3:
@@ -255,29 +312,27 @@ class PhotoViewer(Gtk.Window):
 			clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 			clipboard.set_image(pixbuf)
 		except Exception as e:
-			print(f"Error when copying image to clipboard: {e}")
+			print(f"Error copying image: {e}")
 
 	def copy_path(self, widget, image_path):
 		clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 		clipboard.set_text(image_path, -1)
-		print(f"Image copied to clipboard: {image_path}")
 
 	def copy_folder_path(self, widget, image_path):
-		folder_path = os.path.dirname(image_path)
 		clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-		clipboard.set_text(folder_path, -1)
+		clipboard.set_text(os.path.dirname(image_path), -1)
 
 	def open_folder(self, widget, image_path):
 		folder_path = os.path.dirname(image_path)
-		os.system(f'xdg-open "{folder_path}"')
-		print(f"Open image folder: {folder_path}")
-		if subprocess.call(['which', 'nautilus'], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0:
-			subprocess.Popen(['nautilus', '--select', image_path])
-		elif subprocess.call(['which', 'nemo'], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0:
-			subprocess.Popen(['nemo', '--select', image_path])
-		else:
-			print("U need nautilus or nemo for file selection:P")
-
+		try:
+			if subprocess.call(['which', 'nautilus'], stdout=subprocess.PIPE) == 0:
+				subprocess.Popen(['nautilus', '--select', image_path])
+			elif subprocess.call(['which', 'nemo'], stdout=subprocess.PIPE) == 0:
+				subprocess.Popen(['nemo', '--select', image_path])
+			else:
+				os.system(f'xdg-open "{folder_path}"')
+		except Exception as e:
+			print(f"Error opening folder: {e}")
 
 if __name__ == "__main__":
 	image_path = sys.argv[1] if len(sys.argv) > 1 else None
