@@ -52,13 +52,11 @@ wget https://github.com/0xcds4r/PicasaLinux/releases/download/release/install.sh
 chmod +x ./install.sh
 ```
 
+```
+./install.sh
+```
+
 ## Photos
 ![image](https://github.com/user-attachments/assets/88e8046d-8bdd-4394-ba2f-ee13c1d98409)
 
 ![image](https://github.com/user-attachments/assets/f2cae6ce-0995-4092-a015-b11194d2cb4b)
-
-```
-
-```
-./install.sh
-```
