@@ -45,13 +45,13 @@ python Picasa.py <image_name.png or path (if exists)>
 
 ## Installation
 ```
-sudo apt-get install python3-gi python3-cairo gir1.2-gtk-3.0
+wget https://github.com/0xcds4r/PicasaLinux/releases/download/release/install.sh
 ```
 
 ```
-wget https://github.com/0xcds4r/PicasaLinux/releases/download/release/Picasa_1.0.2_all.deb
+chmod +x ./install.sh
 ```
 
 ```
-sudo dpkg -i Picasa_1.0.2_all.deb
+./install.sh
 ```
