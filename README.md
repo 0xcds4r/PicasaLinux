@@ -44,6 +44,10 @@ python Picasa.py <image_name.png or path (if exists)>
 ```
 
 ## Installation
+```
+wget https://github.com/0xcds4r/PicasaLinux/releases/download/release/Picasa_1.0.2_all.deb
+```
 
-[Releases](https://github.com/0xcds4r/PicasaLinux/releases/tag/release)
-
+```
+sudo dpkg -i Picasa_1.0.2_all.deb
+```
