@@ -57,6 +57,4 @@ chmod +x ./install.sh
 ```
 
 ## Photos
-![image](https://github.com/user-attachments/assets/88e8046d-8bdd-4394-ba2f-ee13c1d98409)
-
-![image](https://github.com/user-attachments/assets/f2cae6ce-0995-4092-a015-b11194d2cb4b)
+![image](https://github.com/user-attachments/assets/9193177b-afac-4b97-b83e-3fe0f2489bf7)
