@@ -31,6 +31,11 @@ class PhotoViewer(Gtk.Window):
 		self.rotation_angle = 0
 		self.current_image_path = ""
 
+		self.animation = None
+		self.current_iter = None
+		self.animation_timeout = None
+		self.current_frame_delay = 0
+
 		self.setup_browser()
 
 		if image_path:
@@ -51,20 +56,41 @@ class PhotoViewer(Gtk.Window):
 		self.add(self.grid)
 
 		toolbar = Gtk.Toolbar()
+
 		open_btn = Gtk.ToolButton(icon_widget=Gtk.Image.new_from_icon_name("document-open", Gtk.IconSize.LARGE_TOOLBAR))
 		open_btn.connect("clicked", self.select_folder)
 		toolbar.insert(open_btn, 0)
+
+		about_btn = Gtk.ToolButton(icon_widget=Gtk.Image.new_from_icon_name("help-about", Gtk.IconSize.LARGE_TOOLBAR))
+		about_btn.connect("clicked", self.show_about_dialog)
+		toolbar.insert(about_btn, 1)
+
 		self.grid.attach(toolbar, 0, 0, 1, 1)
 
 		self.scrolled = Gtk.ScrolledWindow()
 		self.flowbox = Gtk.FlowBox()
 		self.flowbox.set_valign(Gtk.Align.START)
-		self.flowbox.set_max_children_per_line(0)
+		self.flowbox.set_max_children_per_line(8)
 		self.flowbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
 		self.flowbox.connect("child-activated", self.on_thumbnail_click)
 		self.scrolled.set_size_request(800, 600)
 		self.scrolled.add(self.flowbox)
 		self.grid.attach(self.scrolled, 0, 1, 1, 1)
+
+	def show_about_dialog(self, widget=None):
+		about_dialog = Gtk.AboutDialog()
+		about_dialog.set_program_name("Picasa for Linux")
+		about_dialog.set_version("build 1.0.4")
+		try:
+			pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size("/usr/share/icons/hicolor/512x512/apps/Picasa.png", 128, 128)  # Resize if needed
+			about_dialog.set_logo(pixbuf)
+		except Exception as e:
+			print(f"Error loading logo: {e}")
+		about_dialog.set_website("https://github.com/0xcds4r/PicasaLinux")
+		about_dialog.set_website_label("Project GitHub")
+		about_dialog.set_copyright("by 0xcds4r")
+		about_dialog.run()
+		about_dialog.destroy()
 
 	def select_folder(self, widget=None):
 		dialog = Gtk.FileChooserDialog(title="Select Folder", parent=self, action=Gtk.FileChooserAction.SELECT_FOLDER)
@@ -83,7 +109,7 @@ class PhotoViewer(Gtk.Window):
 		self.image_files = [
 			os.path.join(self.current_folder, f)
 			for f in os.listdir(self.current_folder)
-			if f.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'bmp', 'heic'))
+			if f.lower().endswith(('png', 'jpg', 'jpeg', 'bmp', 'heic')) #'gif'
 		]
 		self.update_thumbnails()
 
@@ -120,8 +146,8 @@ class PhotoViewer(Gtk.Window):
 
 		self.fullscreen_window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
 		screen = self.fullscreen_window.get_screen()
-		monitor = screen.get_primary_monitor()
-		geom = screen.get_monitor_geometry(monitor)
+		monitor = Gdk.Display.get_default().get_primary_monitor()
+		geom = monitor.get_geometry()
 	
 		self.fullscreen_window.set_default_size(geom.width, geom.height)
 		self.fullscreen_window.move(geom.x, geom.y)
@@ -151,11 +177,23 @@ class PhotoViewer(Gtk.Window):
 		)
 
 		try:
-			self.pixbuf = GdkPixbuf.Pixbuf.new_from_file(path)
-			self.current_image_path = path
+			self.animation = GdkPixbuf.PixbufAnimation.new_from_file(path)
+			
+			if self.animation.is_static_image():
+				# Статичное изображение
+				self.pixbuf = self.animation.get_static_image()
+				self.animation = None
+			else:
+				# Анимация
+				self.current_iter = self.animation.get_iter()
+				self.pixbuf = self.current_iter.get_pixbuf()
+				self.start_animation()
 
-			image_width = self.pixbuf.get_width()
-			image_height = self.pixbuf.get_height()
+			# Общие настройки масштаба и положения
+			self.current_image_path = path
+			img_width = self.pixbuf.get_width()
+			img_height = self.pixbuf.get_height()
+
 			screen_width = geom.width
 			screen_height = geom.height
 
@@ -163,8 +201,8 @@ class PhotoViewer(Gtk.Window):
 			safe_width = screen_width - 2 * padding
 			safe_height = screen_height - 2 * padding
 
-			scale_w = safe_width / image_width if image_width > 0 else 1.0
-			scale_h = safe_height / image_height if image_height > 0 else 1.0
+			scale_w = safe_width / img_width if img_width > 0 else 1.0
+			scale_h = safe_height / img_height if img_height > 0 else 1.0
 			self.scale_factor = min(scale_w, scale_h, 1.0)
 
 			if self.scale_factor < 0.1:
@@ -189,11 +227,20 @@ class PhotoViewer(Gtk.Window):
 		self.fullscreen_window.add(self.drawing_area)
 		self.fullscreen_window.show_all()
 
+
+	def start_animation(self):
+		if self.animation_timeout:
+			GLib.source_remove(self.animation_timeout)
+		self.update_animation()
+
+	def update_animation(self):
+		return False
+
 	def on_draw(self, widget, cr):
 		if not self.pixbuf:
 			return
 
-		cr.set_source_rgba(0.0, 0.0, 0.0, 0.0)
+		cr.set_source_rgba(0.0, 0.0, 0.0, 0.3)
 		cr.set_operator(cairo.OPERATOR_SOURCE)
 		cr.paint()
 		cr.set_operator(cairo.OPERATOR_OVER)
@@ -220,14 +267,43 @@ class PhotoViewer(Gtk.Window):
 		cr.paint()
 		cr.restore()
 
-		cr.set_font_size(12)
-		cr.set_source_rgba(0, 0, 0, 0.5)
-		cr.rectangle(5, 5, 300, 25)
+		self.draw_info_overlay(cr, img_width, img_height, width, height)
+
+	def draw_info_overlay(self, cr, img_width, img_height, screen_width, screen_height):
+		font_size = 10
+		padding = 4
+		margin = 2
+
+		cr.set_font_size(font_size)
+		cr.set_source_rgb(1, 1, 1)
+
+		info = f"{os.path.basename(self.current_image_path)} ({img_width}x{img_height}) "
+		info += f"Zoom: {int(self.scale_factor*100)}% Rot: {self.rotation_angle}°"
+
+		extents = cr.text_extents(info)
+		text_width = extents.width
+		text_height = extents.height
+
+		overlay_width = text_width + 2 * padding
+		overlay_height = font_size + 2 * padding
+
+		overlay_x = margin
+		overlay_y = margin
+
+		if overlay_x + overlay_width > screen_width:
+			overlay_x = screen_width - overlay_width - margin
+		if overlay_y + overlay_height > screen_height:
+			overlay_y = screen_height - overlay_height - margin
+
+		cr.set_source_rgba(0, 0, 0, 0.55)
+		cr.rectangle(overlay_x, overlay_y, overlay_width, overlay_height)
 		cr.fill()
 
+		text_x = overlay_x + padding
+		text_y = overlay_y + padding + font_size * 0.8
+
 		cr.set_source_rgb(1, 1, 1)
-		info = f"{os.path.basename(self.current_image_path)} ({img_width}x{img_height}) Zoom: {int(self.scale_factor*100)}% Rot: {self.rotation_angle}°"
-		cr.move_to(10, 20)
+		cr.move_to(text_x, text_y)
 		cr.show_text(info)
 
 	def on_button_press(self, widget, event):
@@ -264,16 +340,24 @@ class PhotoViewer(Gtk.Window):
 		self.scale_factor = max(0.1, min(self.scale_factor, 10.0))
 		self.drawing_area.queue_draw()
 
+	def reset_animation(self):
+		if self.animation_timeout:
+			GLib.source_remove(self.animation_timeout)
+			self.animation_timeout = None
+
 	def on_fullscreen_key_press(self, widget, event):
 		key = event.keyval
 		if key == Gdk.KEY_Escape:
 			self.fullscreen_window.destroy()
 			if self.single_opened:
 				Gtk.main_quit()
+			self.reset_animation()
 		elif key == Gdk.KEY_Left:
+			self.reset_animation()
 			self.current_index = max(0, self.current_index - 1)
 			self.show_fullscreen(self.image_files[self.current_index])
 		elif key == Gdk.KEY_Right:
+			self.reset_animation()
 			self.current_index = min(len(self.image_files)-1, self.current_index + 1)
 			self.show_fullscreen(self.image_files[self.current_index])
 		elif key == Gdk.KEY_Up:
